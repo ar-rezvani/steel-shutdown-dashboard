@@ -1,0 +1,22 @@
+{
+  "name": "Steel Shutdown",
+  "dataColors": ["#1F4E79", "#E07B00", "#2E7D32", "#C62828", "#6A4C93", "#00838F", "#8D6E63", "#546E7A"],
+  "background": "#FFFFFF",
+  "foreground": "#1F2937",
+  "tableAccent": "#1F4E79",
+  "good": "#2E7D32",
+  "neutral": "#F9A825",
+  "bad": "#C62828",
+  "maximum": "#1F4E79",
+  "center": "#F9A825",
+  "minimum": "#C62828",
+  "textClasses": {
+    "callout": { "fontSize": 28, "fontFace": "Tahoma", "color": "#1F4E79" },
+    "title":   { "fontSize": 12, "fontFace": "Tahoma", "color": "#1F2937" },
+    "header":  { "fontSize": 11, "fontFace": "Tahoma", "color": "#1F2937" },
+    "label":   { "fontSize": 10, "fontFace": "Tahoma", "color": "#4B5563" }
+  },
+  "visualStyles": {
+    "*": { "*": { "title": [{ "fontFamily": "Tahoma", "fontSize": 12 }] } }
+  }
+}

@@ -1,0 +1,109 @@
+// =====================================================================================
+//  Steel Shutdown Repair Dashboard — DAX measures
+//  Create an empty table "_Measures" (Home > Enter data) and add these as measures.
+//  Tables: Fact_Activities, Fact_Daily, Fact_Resources, Dim_Date, Dim_Area,
+//          Dim_Discipline, Dim_Contractor, Dim_Reason
+// =====================================================================================
+
+// ----------------------------- 1. Man-hours ------------------------------------------
+Planned MH   = SUM ( Fact_Activities[PlannedMH] )
+Earned MH    = SUM ( Fact_Activities[EarnedMH] )
+Actual MH    = SUM ( Fact_Activities[ActualMH] )
+Remaining MH = [Planned MH] - [Earned MH]
+
+Completion % = DIVIDE ( [Earned MH], [Planned MH] )
+Remaining %  = 1 - [Completion %]
+
+// Productivity: > 1 means the work consumed fewer hours than its planned value
+Productivity Index = DIVIDE ( [Earned MH], [Actual MH] )
+
+// ----------------------------- 2. Activity counts ------------------------------------
+Activities Count  = COUNTROWS ( Fact_Activities )
+Done Count        = CALCULATE ( [Activities Count], Fact_Activities[Status] = "Done" )
+In Progress Count = CALCULATE ( [Activities Count], Fact_Activities[Status] = "In Progress" )
+Not Done Count    = CALCULATE ( [Activities Count], Fact_Activities[Status] = "Not Done" )
+Done Activities % = DIVIDE ( [Done Count], [Activities Count] )
+
+// Planned MH of activities that never started (Progress = 0)
+Not Done MH = CALCULATE ( [Planned MH], Fact_Activities[Status] = "Not Done" )
+
+// ----------------------------- 3. Unfinished work & reasons --------------------------
+// Unfinished hours = planned - earned (covers "Not Done" and "In Progress")
+Unfinished MH = SUM ( Fact_Activities[UnfinishedMH] )
+Unfinished %  = DIVIDE ( [Unfinished MH], CALCULATE ( [Unfinished MH], ALLSELECTED ( Dim_Reason ) ) )
+
+// Pareto: cumulative share of unfinished MH, reasons ranked high -> low.
+// Axis: Dim_Reason[ReasonName], sorted by [Unfinished MH] descending.
+// Add a visual-level filter "[Unfinished MH] is not blank" to hide finished activities.
+Pareto Cumulative % =
+VAR _cur   = [Unfinished MH]
+VAR _all   = ALLSELECTED ( Dim_Reason[ReasonName] )
+VAR _cumul = SUMX ( FILTER ( _all, [Unfinished MH] >= _cur ), [Unfinished MH] )
+VAR _total = SUMX ( _all, [Unfinished MH] )
+RETURN
+    DIVIDE ( _cumul, _total )
+
+// ----------------------------- 4. Resources (man-hours available) --------------------
+Available MH          = SUM ( Fact_Resources[AvailableMH] )
+Actual MH (Daily)     = SUM ( Fact_Daily[ActualMH_Day] )
+// Availability exists per Date and Discipline only: use these two as axis/filters.
+Utilization %         = DIVIDE ( [Actual MH (Daily)], [Available MH] )
+Idle MH               = [Available MH] - [Actual MH (Daily)]
+
+// ----------------------------- 5. S-curve (cumulative by date) -----------------------
+Planned MH (Daily) = SUM ( Fact_Daily[PlannedMH_Day] )
+Earned MH (Daily)  = SUM ( Fact_Daily[EarnedMH_Day] )
+
+Cumulative Planned MH =
+CALCULATE (
+    [Planned MH (Daily)],
+    FILTER ( ALL ( Dim_Date[Date] ), Dim_Date[Date] <= MAX ( Dim_Date[Date] ) )
+)
+
+// Last day that has real progress (ignores slicers on purpose)
+Status Date =
+CALCULATE (
+    MAXX ( FILTER ( Fact_Daily, Fact_Daily[EarnedMH_Day] > 0 ), Fact_Daily[Date] ),
+    REMOVEFILTERS ()
+)
+
+// Returns BLANK after the status date, so the line stops where the data stops
+Cumulative Earned MH =
+VAR _d = MAX ( Dim_Date[Date] )
+RETURN
+    IF (
+        _d <= [Status Date],
+        CALCULATE (
+            [Earned MH (Daily)],
+            FILTER ( ALL ( Dim_Date[Date] ), Dim_Date[Date] <= _d )
+        )
+    )
+
+Cumulative Actual MH =
+VAR _d = MAX ( Dim_Date[Date] )
+RETURN
+    IF (
+        _d <= [Status Date],
+        CALCULATE (
+            [Actual MH (Daily)],
+            FILTER ( ALL ( Dim_Date[Date] ), Dim_Date[Date] <= _d )
+        )
+    )
+
+// Schedule Performance Index: < 1 means behind plan
+SPI = DIVIDE ( [Cumulative Earned MH], [Cumulative Planned MH] )
+
+// ----------------------------- 6. Formatting helpers ---------------------------------
+// Conditional formatting: Format > Background color > Format style: Field value
+Completion Color =
+SWITCH (
+    TRUE (),
+    [Completion %] >= 0.9, "#2E7D32",
+    [Completion %] >= 0.7, "#F9A825",
+    "#C62828"
+)
+
+// Dynamic subtitle for the reasons page
+Reasons Subtitle =
+"Unfinished: " & FORMAT ( [Unfinished MH], "#,0" ) & " MH  |  Not started: "
+    & FORMAT ( [Not Done Count], "0" ) & " activities"

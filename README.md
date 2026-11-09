@@ -87,7 +87,7 @@ Power BI Desktop, Power Query (M), DAX, Python (`openpyxl`) for data generation.
 
 ## Author
 
-[Ali Reza Rezvani] - [https://www.linkedin.com/in/ali-reza-rezvani-65b1632a6]
+Ali Reza Rezvani - https://www.linkedin.com/in/ali-reza-rezvani-65b1632a6
 
 ## License
 
